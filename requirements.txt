@@ -1,0 +1,5 @@
+streamlit>=1.38,<2
+langgraph>=0.2,<2
+langchain-ollama>=0.2,<2
+langchain-openai>=0.2,<2
+pytest>=8,<10
