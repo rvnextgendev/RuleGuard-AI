@@ -5,7 +5,7 @@ st.title('Payment Rule Guard · POC')
 tab1,tab2,tab3=st.tabs(['Discover','Manage Rules','Developer Review'])
 with tab1:
  st.write('Discover candidate rules from C# and SQL. AI candidates require manual approval.')
- mode=st.radio('Discovery mode',['AI (LangGraph + selected LLM)','Pattern-based baseline'])
+ mode=st.radio('Discovery mode',['AI','Pattern-based baseline'])
  if st.button('Discover rules'):
   try:
    if mode.startswith('AI'):
