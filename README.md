@@ -189,6 +189,143 @@ These are different actions:
 
 **Current limitation:** Streamlit Community Cloud storage is ephemeral. An approved Markdown rule there may disappear on redeploy and will **not** become available to GitHub Actions unless the file is separately committed to the repository. Also, dynamically discovered AI rules are advisory until a validator is implemented for them. Future enhancements should synchronize approved rules using a properly authenticated GitHub App and validate newly approved AI rules in CI.
 
+## Local debugging on Windows (VS Code + Docker)
+
+### 1. Prepare the project
+
+In Windows CMD:
+
+```cmd
+cd C:\Users\RajeshDas\RuleGuard-AI
+git pull origin main
+copy .env.example .env
+notepad .env
+```
+
+If `.env` already exists, **do not overwrite it**; just open it with Notepad. Select either Ollama or Groq as documented above.
+
+### 2. Run the Docker app and inspect logs
+
+For Ollama **inside Docker**:
+
+```cmd
+docker compose --profile local-llm up -d --build
+docker compose exec ollama ollama pull qwen2.5:3b
+```
+
+For Groq or an Ollama server **already running on Windows** (with the appropriate `OLLAMA_URL`):
+
+```cmd
+docker compose up -d --build
+```
+
+Then:
+
+```cmd
+docker compose ps
+docker compose logs -f app
+```
+
+Open http://localhost:8501. Press Ctrl+C to stop following logs; this does not stop the container.
+
+### 3. Step through Python with pdb
+
+The Docker service mounts the repository at `/workspace`. To debug discovery:
+
+```cmd
+docker compose run --rm --no-deps -it app python -m pdb app/cli.py discover
+```
+
+At the `(Pdb)` prompt, use:
+
+```text
+b app/engine.py:12
+l
+n
+s
+p results
+c
+q
+```
+
+**Note:** Line numbers may change. Use `l` to inspect code and set the breakpoint at the relevant executable line. The command above tests **pattern-based discovery**. For AI discovery, the UI calls `app/discovery_ai.py:discover_ai()`, which invokes the selected LLM; inspect that function and `app/llm.py:model()` when troubleshooting.
+
+To check staged changes:
+
+```cmd
+git diff --cached
+docker compose run --rm --no-deps -T app python app/cli.py review
+```
+
+### 4. VS Code breakpoints (local Python)
+
+Install Python 3.11+ and the VS Code Python extension. From the project folder, create a virtual environment:
+
+```cmd
+py -3.11 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+code .
+```
+
+If Python 3.11 is not installed, use your installed supported Python version and adjust the `py` command.
+
+Create `.vscode/launch.json` with:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "RuleGuard Streamlit",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": ["run", "app/ui.py", "--server.port=8502"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "RuleGuard Pattern Discovery",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/app/cli.py",
+      "args": ["discover"],
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}
+```
+
+Select the `.venv` interpreter in VS Code, set breakpoints in `app/ui.py`, `app/discovery_ai.py`, `app/engine.py`, or `app/llm.py`, and press **F5**. Open http://localhost:8502 for the debugger-run UI. Stop the Docker app first if you want to avoid confusion between two instances.
+
+If debugging against Ollama running **on Windows**, set `OLLAMA_URL=http://localhost:11434` in your local `.env`. If the debugger runs outside Docker, `http://ollama:11434` will not resolve.
+
+### 5. Reproduce a rule violation locally
+
+1. In Streamlit, run **Discover → Pattern-based baseline**, then approve `PAY-001` in **Manage Rules**.
+2. Create a feature branch: `git switch -c test/payment-validation`.
+3. Remove `if (amount <= 0) return false;` from `samples/PaymentService.cs`.
+4. Stage the change: `git add samples/PaymentService.cs`.
+5. Run `docker compose run --rm --no-deps -T app python app/cli.py review` and inspect the `PAY-001` warning.
+6. Restore the sample after testing, or commit only to your test branch. Never push the intentional violation to `main`.
+
+### 6. Troubleshooting checklist
+
+| Symptom | Check |
+| --- | --- |
+| Streamlit doesn't open | `docker compose ps`, `docker compose logs app`, port 8501 |
+| Groq returns 401 or 429 | API key, model access, rate limits, quota |
+| Ollama connection refused | Container versus Windows-host `OLLAMA_URL`, model availability |
+| AI discovery returns no drafts | `app/discovery_ai.py`, LLM JSON output, exact evidence matching |
+| Rule file disappears in cloud | Streamlit Cloud filesystem is ephemeral |
+| GitHub approval skipped | Approved Markdown committed to repo; `detect` job report |
+| Pre-commit hook doesn't run | `python install-hook.py`, Git hooks path, Docker Desktop running |
+
+**Security:** Do not print or commit your `.env` or API keys. The AI discovery feature is experimental; generated Markdown must be reviewed before approval, and AI-discovered rules are not yet enforced by the baseline CI validator.
+
 ## Debugging
 
 ```bash
