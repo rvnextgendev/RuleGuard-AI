@@ -155,6 +155,40 @@ docker compose exec ollama ollama list
 4. Install a local hook with `python install-hook.py` and try committing. It warns rather than blocks by default.
 5. Open a GitHub PR. The Action checks approved rules and requests an environment approval when it detects a violation. Configure a `business-rule-exception` environment with required reviewers and protect `main` using the `merge-gate` required status check.
 
+
+## GitHub business-owner approval setup
+
+Configure the environment for approval-gated pull requests at:
+
+**[RuleGuard AI — GitHub Environment Settings](https://github.com/rvnextgendev/RuleGuard-AI/settings/environments)**
+
+1. Open the link above and choose **New environment**, or open the existing `business-rule-exception` environment.
+2. Name it **`business-rule-exception`** (exact match with `.github/workflows/rule-guard.yml`).
+3. Under **Deployment protection rules**, enable **Required reviewers**.
+4. Search for and **select a GitHub username or team from the dropdown**. Typing an email address alone does not select a reviewer.
+5. For a quick single-account POC, leave **Prevent self-review** unchecked. For real governance, enable it and use a separate authorized business-owner account.
+6. Save the environment's protection rules.
+7. Configure branch protection/rulesets for `main` to require the **`merge-gate`** status check. Otherwise an approval job by itself does not guarantee merge blocking.
+
+### Test the approval gate
+
+- Make sure at least one baseline rule (for example `rules/approved/PAY-001.md`) is **committed to GitHub**, not just present in the local or Streamlit Cloud filesystem.
+- On a feature branch, remove the payment amount validation from `samples/PaymentService.cs` and open a PR into `main`.
+- In **Actions → RuleGuard Business Approval**, inspect the `detect`, `owner-approval`, and `merge-gate` jobs.
+- If a recognized approved rule violation exists, `owner-approval` should wait for a GitHub environment reviewer. After a reviewer approves the deployment, `merge-gate` may pass if the other required checks succeed.
+- If `owner-approval` is **skipped**, inspect the `detect` report; the current POC only enforces its predefined `PAY-001` through `PAY-004` conditions.
+
+### Streamlit Cloud approval versus GitHub approval
+
+These are different actions:
+
+| Approval | What it does | GitHub impact |
+| --- | --- | --- |
+| **Rule approval in Streamlit** | Writes `rules/approved/*.md` inside the app's filesystem | **Does not automatically commit/sync** to GitHub |
+| **Environment approval in GitHub** | Allows a gated workflow job to continue for a detected exception | Can satisfy the required `merge-gate` check |
+
+**Current limitation:** Streamlit Community Cloud storage is ephemeral. An approved Markdown rule there may disappear on redeploy and will **not** become available to GitHub Actions unless the file is separately committed to the repository. Also, dynamically discovered AI rules are advisory until a validator is implemented for them. Future enhancements should synchronize approved rules using a properly authenticated GitHub App and validate newly approved AI rules in CI.
+
 ## Debugging
 
 ```bash
