@@ -13,7 +13,8 @@ from engine import ROOT
 
 
 # Motor-related sources
-SOURCES = ["samples/PaymentService.cs", "samples/CapturePayment.sql","samples/usp_Oem_Insert_Oem_Master.sql"]
+# SOURCES = ["samples/PaymentService.cs", "samples/CapturePayment.sql","samples/usp_Oem_Insert_Oem_Master.sql"]
+SOURCES = ["samples/PaymentService.cs", "samples/CapturePayment.sql"]
 
 class DiscoveryState(TypedDict):
     source: str
