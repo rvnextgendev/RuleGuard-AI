@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph, START, END
 from llm import model
 from engine import ROOT
 
-SOURCES = ["samples/PaymentService.cs", "samples/CapturePayment.sql"]
+SOURCES = ["samples/PaymentService.cs", "samples/CTU.sql"]
 class DiscoveryState(TypedDict):
     source: str
     candidates: list
